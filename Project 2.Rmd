@@ -1,0 +1,48 @@
+---
+title: "Exploring the NOAA Storm Database"
+author: "Berj Dekramanjian"
+date: "7/29/2021"
+output: html_document
+---
+
+## Synopsis:
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+
+This study will involve exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of  weather events in the United States, starting in the year 1950 and end in November 2011.
+
+The study will analyse which types of events  are most harmful with respect to population health, and have the greatest economic consequences.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Processing 
+
+The data has been downloaded from the link provided on: <https://www.coursera.org/learn/reproducible-research/peer/OMZ37/course-project-2>
+
+It was unzipped using 7-zip and saved to the directory utilised by the project
+
+```{r data processing}
+data <- read.csv("StormData.csv")
+str(data)
+summary(data)
+library(ggplot2)
+library(dplyr)
+```
+
+## Analysis of Impact on Health and Economy
+
+In order to track the damage caused to human health and the economy by various types of events, we aggregate total injuries ,fatalities and property damage costs throughout the years and also calculate their respective rates of harm caused per event.
+```{r impact on health}
+DeathInjury <-  data %>%
+  group_by(EVTYPE) %>%
+  summarise(deaths = sum(FATALITIES), injuries = sum(INJURIES), totalcost = sum(PROPDMG),  
+            deathrate = mean(FATALITIES), injrate = mean(INJURIES), averagecost = mean(PROPDMG))
+
+```
+
+
+
+

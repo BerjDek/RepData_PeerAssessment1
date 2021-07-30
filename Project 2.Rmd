@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The data has been downloaded from the link provided on: <https://www.coursera.org/learn/reproducible-research/peer/OMZ37/course-project-2>
 
-It was unzipped using 7-zip and saved to the directory utilised by the project
+It was unzipped using 7-zip and saved to the directory utilized by the project
 
 ```{r data processing}
 data <- read.csv("StormData.csv")
@@ -30,19 +30,116 @@ str(data)
 summary(data)
 library(ggplot2)
 library(dplyr)
+library(tidyr)
+library(wesanderson)
 ```
 
-## Analysis of Impact on Health and Economy
 
-In order to track the damage caused to human health and the economy by various types of events, we aggregate total injuries ,fatalities and property damage costs throughout the years and also calculate their respective rates of harm caused per event.
+## Extracting variables of Interest  and Transforming Extracted Variables
+
+```{r echo = FALSE}
+data1 <- data %>%  select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+
+```
+###combine events into catagories
+```{r}
+data1$EVENT <- "OTHER"
+data1$EVENT[grep("HAIL", data1$EVTYPE, ignore.case = TRUE)] <- "HAIL"
+data1$EVENT[grep("HEAT", data1$EVTYPE, ignore.case = TRUE)] <- "HEAT"
+data1$EVENT[grep("FLOOD", data1$EVTYPE, ignore.case = TRUE)] <- "FLOOD"
+data1$EVENT[grep("WIND", data1$EVTYPE, ignore.case = TRUE)] <- "WIND"
+data1$EVENT[grep("STORM", data1$EVTYPE, ignore.case = TRUE)] <- "STORM"
+data1$EVENT[grep("SNOW", data1$EVTYPE, ignore.case = TRUE)] <- "SNOW"
+data1$EVENT[grep("TORNADO", data1$EVTYPE, ignore.case = TRUE)] <- "TORNADO"
+data1$EVENT[grep("WINTER", data1$EVTYPE, ignore.case = TRUE)] <- "WINTER"
+data1$EVENT[grep("RAIN", data1$EVTYPE, ignore.case = TRUE)] <- "RAIN"
+```
+### listing the transformed event types 
+```{r}
+sort(table(data1$EVENT), decreasing = TRUE)
+```
+###sort costs based on the XP given
+```{r}
+data1$PROPDMGEXP <- as.character(data1$PROPDMGEXP)
+data1$PROPDMGEXP[!grepl("K|M|B", data1$PROPDMGEXP, ignore.case = TRUE)] <- 0 # everything exept K,M,B is dollar
+data1$PROPDMGEXP[grep("K", data1$PROPDMGEXP, ignore.case = TRUE)] <- "3"
+data1$PROPDMGEXP[grep("M", data1$PROPDMGEXP, ignore.case = TRUE)] <- "6"
+data1$PROPDMGEXP[grep("B", data1$PROPDMGEXP, ignore.case = TRUE)] <- "9"
+data1$PROPDMGEXP <- as.numeric(as.character(data1$PROPDMGEXP))
+data1$property.damage <- data1$PROPDMG * 10^data1$PROPDMGEXP
+
+data1$CROPDMGEXP <- as.character(data1$CROPDMGEXP)
+data1$CROPDMGEXP[!grepl("K|M|B", data1$CROPDMGEXP, ignore.case = TRUE)] <- 0 # everything exept K,M,B is dollar
+data1$CROPDMGEXP[grep("K", data1$CROPDMGEXP, ignore.case = TRUE)] <- "3"
+data1$CROPDMGEXP[grep("M", data1$CROPDMGEXP, ignore.case = TRUE)] <- "6"
+data1$CROPDMGEXP[grep("B", data1$CROPDMGEXP, ignore.case = TRUE)] <- "9"
+data1$CROPDMGEXP <- as.numeric(as.character(data1$CROPDMGEXP))
+data1$crop.damage <- data1$CROPDMG * 10^data1$CROPDMGEXP
+```
+
+## Analysis 
+
+###Aggregating Impact on Health
+
+In order to track the damage caused to human health and the economy by various types of events, we aggregate total injuries and fatalities throughout the years.
+
 ```{r impact on health}
-DeathInjury <-  data %>%
-  group_by(EVTYPE) %>%
-  summarise(deaths = sum(FATALITIES), injuries = sum(INJURIES), totalcost = sum(PROPDMG),  
-            deathrate = mean(FATALITIES), injrate = mean(INJURIES), averagecost = mean(PROPDMG))
+AggHumanCost <- data1 %>%  
+  group_by(EVENT)  %>% 
+  summarise(Fatalities = sum(FATALITIES), Injuries = sum(INJURIES)) %>% 
+  pivot_longer(-EVENT, names_to = "type", values_to = "amount" )
 
 ```
 
+###Aggregating Impact on the Economy
+
+In order to track the damage caused to the economy by various types of events, we aggregate total costs throughout the years and also calculate the average cost per incident of each type of event.
+
+```{r impact on Economy}
+AggEconCost <- data1 %>%  
+  group_by(EVENT)  %>% 
+  summarise(LostProperty = sum(property.damage), LostCrop = sum(crop.damage)) %>% 
+  pivot_longer(-EVENT, names_to = "type", values_to = "amount" )
+
+AvgEconCost <- data1 %>%  
+  group_by(EVENT)  %>% 
+  summarise(LostProperty = mean(property.damage), LostCrop = mean(crop.damage)) %>% 
+  pivot_longer(-EVENT, names_to = "type", values_to = "amount" )
+```
+
+
+##Results
+###Visulising  harm of various events on human health
+
+The below figure shows the aggregated number of Fatalities and injuries caused by various types of events over the years
+
+``` {r}
+ggplot(AggHumanCost, aes(x = EVENT, y = amount, fill = type)) + geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Event Type") + 
+  ylab("Total number of health impact") +
+  ggtitle("Weather event types impact on public health") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="Set1")
+```
+
+It is clear from the data that Tornados have throughout the years have had the most significant impact on human health
+
+###Visulising  harm of various events on the Economy
+The below figure shows the aggregated cost of property and crop damages caused by various types of events over the years
+
+``` {r}
+ggplot(AggEconCost, aes(x = EVENT, y = amount, fill = type)) + geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Event Type") + 
+  ylab("Total Cost of Economic Damages") +
+  ggtitle("Weather event types impact on Economy") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="YlGnBu")
+```
+
+
+It is clear from the data that Floods have throughout the years have had the most significant impact on economy when combining costs of lost crops and property
 
 
 
